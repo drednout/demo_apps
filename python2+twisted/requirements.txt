@@ -1,0 +1,2 @@
+twisted==17.9.0
+cyclone==1.1
