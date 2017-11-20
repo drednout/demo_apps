@@ -25,16 +25,20 @@ async def fetch(session, url):
         async with session.get(url) as response:
             return await response.text()
 
+
 async def handle_gateway(request):
     url = request.query.get('url', 'http://localhost')
-    async with aiohttp.ClientSession() as session:
-        resp = await fetch(session, url)
-        return web.Response(text=resp)
+    session = request.app.client_session
+    resp = await fetch(session, url)
+    return web.Response(text=resp)
 
-app = web.Application()
-app.router.add_get('/', handle_root)
-app.router.add_get('/cpu_load', handle_cpu_load)
-app.router.add_get('/slow_resp', handle_slow_resp)
-app.router.add_get('/gateway', handle_gateway)
+if __name__ == "__main__":
+    app = web.Application()
+    app.router.add_get('/', handle_root)
+    app.router.add_get('/cpu_load', handle_cpu_load)
+    app.router.add_get('/slow_resp', handle_slow_resp)
 
-web.run_app(app, port=3600)
+    app.client_session = aiohttp.ClientSession()
+    app.router.add_get('/gateway', handle_gateway)
+
+    web.run_app(app, port=3600)

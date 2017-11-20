@@ -3,6 +3,7 @@ import logging
 
 from twisted.internet import reactor, defer
 from twisted.web.client import getPage
+from twisted.web.client import Agent, HTTPConnectionPool, readBody
 from twisted.python import log
 import cyclone.web
 
@@ -37,23 +38,37 @@ class SlowResp(cyclone.web.RequestHandler):
         text = 'Slow hello from python2.7+twisted'
         self.write(text)
 
-class Gateway(cyclone.web.RequestHandler):
+class OldGateway(cyclone.web.RequestHandler):
     @defer.inlineCallbacks
     def get(self):
         url = str(self.get_argument('url', 'http://localhost'))
         resp = yield getPage(url, method='GET')
         self.write(resp)
 
+class Gateway(cyclone.web.RequestHandler):
+    @defer.inlineCallbacks
+    def get(self):
+        url = str(self.get_argument('url', 'http://localhost'))
+        resp = yield self.application.agent.request('GET', url)
+        body = yield readBody(resp)
+        self.write(body)
+
 if __name__ == '__main__':
     logging.basicConfig(format='%(levelname)s: %(message)s')
     logging.root.setLevel(logging.ERROR)
+
+    pool = HTTPConnectionPool(reactor)
+    pool.maxPersistentPerHost = 100
+    agent = Agent(reactor, pool=pool)
 
     application = cyclone.web.Application([
         (r'/', RootHandler),
         (r'/cpu_load', CpuLoad),
         (r'/slow_resp', SlowResp),
         (r'/gateway', Gateway),
+        (r'/old_gateway', OldGateway),
     ])
+    application.agent = agent
 
     observer = log.PythonLoggingObserver()
     observer.start()
